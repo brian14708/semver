@@ -25,7 +25,7 @@ $(GOLANGCI_LINT):
 	# Install golangci-lint. The configuration for it is in the .golangci.yml
 	# file in the root of the repository
 	echo ${GOPATH}
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(GOPATH)/bin v1.17.1
+	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOPATH)/bin v1.50.1
 
 $(GOFUZZBUILD):
 	cd / && go get -u github.com/dvyukov/go-fuzz/go-fuzz-build
