@@ -1,3 +1,3 @@
-module github.com/Masterminds/semver/v3
+module github.com/brian14708/semver
 
 go 1.18
