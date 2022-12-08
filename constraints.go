@@ -496,6 +496,8 @@ func constraintLessThanEqual(v *Version, c *constraint) (bool, error) {
 // ~1.2, ~1.2.x, ~>1.2, ~>1.2.x --> >=1.2.0, <1.3.0
 // ~1.2.3, ~>1.2.3 --> >=1.2.3, <1.3.0
 // ~1.2.0, ~>1.2.0 --> >=1.2.0, <1.3.0
+// ~1.2.0.0, ~>1.2.0.0 --> >=1.2.0, <1.3.0
+// ~1.2.0.x, ~>1.2.0.x --> >=1.2.0.0, <1.2.1.0
 func constraintTilde(v *Version, c *constraint) (bool, error) {
 	// If there is a pre-release on the version but the constraint isn't looking
 	// for them assume that pre-releases are not compatible. See issue 21 for
@@ -548,15 +550,16 @@ func constraintTildeOrEqual(v *Version, c *constraint) (bool, error) {
 	return false, fmt.Errorf("%s is not equal to %s", v, c.orig)
 }
 
-// ^*      -->  (any)
-// ^1.2.3  -->  >=1.2.3 <2.0.0
-// ^1.2    -->  >=1.2.0 <2.0.0
-// ^1      -->  >=1.0.0 <2.0.0
-// ^0.2.3  -->  >=0.2.3 <0.3.0
-// ^0.2    -->  >=0.2.0 <0.3.0
-// ^0.0.3  -->  >=0.0.3 <0.0.4
-// ^0.0    -->  >=0.0.0 <0.1.0
-// ^0      -->  >=0.0.0 <1.0.0
+// ^*        -->  (any)
+// ^1.2.3    -->  >=1.2.3 <2.0.0
+// ^1.2      -->  >=1.2.0 <2.0.0
+// ^1        -->  >=1.0.0 <2.0.0
+// ^0.2.3    -->  >=0.2.3 <0.3.0
+// ^0.2      -->  >=0.2.0 <0.3.0
+// ^0.0.3    -->  >=0.0.3 <0.0.4
+// ^0.0      -->  >=0.0.0 <0.1.0
+// ^0        -->  >=0.0.0 <1.0.0
+// ^0.0.0.3  -->  >=0.0.0.3 <0.0.0.4
 func constraintCaret(v *Version, c *constraint) (bool, error) {
 	// If there is a pre-release on the version but the constraint isn't looking
 	// for them assume that pre-releases are not compatible. See issue 21 for
