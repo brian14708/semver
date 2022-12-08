@@ -1,7 +1,5 @@
 GOPATH=$(shell go env GOPATH)
 GOLANGCI_LINT=$(GOPATH)/bin/golangci-lint
-GOFUZZBUILD = $(GOPATH)/bin/go-fuzz-build
-GOFUZZ = $(GOPATH)/bin/go-fuzz
 
 .PHONY: lint
 lint: $(GOLANGCI_LINT)
@@ -19,10 +17,9 @@ test-cover:
 	GO111MODULE=on go test -cover .
 
 .PHONY: fuzz
-fuzz: $(GOFUZZBUILD) $(GOFUZZ)
+fuzz:
 	@echo "==> Fuzz testing"
-	$(GOFUZZBUILD)
-	$(GOFUZZ) -workdir=_fuzz
+	go test -fuzz .
 
 $(GOLANGCI_LINT):
 	# Install golangci-lint. The configuration for it is in the .golangci.yml
