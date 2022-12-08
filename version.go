@@ -302,6 +302,11 @@ func (v Version) Patch() uint64 {
 	return v.patch
 }
 
+// Ext returns the extension versions.
+func (v Version) Ext() []uint64 {
+	return v.ext
+}
+
 // Prerelease returns the pre-release version.
 func (v Version) Prerelease() string {
 	return v.pre
@@ -439,6 +444,9 @@ func (v *Version) Compare(o *Version) int {
 	if d := compareSegment(v.Patch(), o.Patch()); d != 0 {
 		return d
 	}
+	if d := compareExt(v.Ext(), o.Ext(), -1); d != 0 {
+		return d
+	}
 
 	// At this point the major, minor, and patch versions are the same.
 	ps := v.pre
@@ -528,6 +536,30 @@ func compareSegment(v, o uint64) int {
 		return 1
 	}
 
+	return 0
+}
+
+func compareExt(v, o []uint64, maxSeg int) int {
+	if maxSeg == -1 {
+		if len(v) > len(o) {
+			maxSeg = len(v)
+		} else {
+			maxSeg = len(o)
+		}
+	}
+	for i := 0; i < maxSeg; i++ {
+		a := uint64(0)
+		b := uint64(0)
+		if i < len(v) {
+			a = v[i]
+		}
+		if i < len(o) {
+			b = o[i]
+		}
+		if d := compareSegment(a, b); d != 0 {
+			return d
+		}
+	}
 	return 0
 }
 

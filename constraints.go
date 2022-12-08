@@ -161,7 +161,7 @@ var findConstraintRegex *regexp.Regexp
 // Used to validate an segment of ANDs is valid
 var validConstraintRegex *regexp.Regexp
 
-const cvRegex string = `v?([0-9|x|X|\*]+)(\.[0-9|x|X|\*]+)?(\.[0-9|x|X|\*]+)?` +
+const cvRegex string = `[vV]?([0-9|x|X|\*]+)(\.[0-9|x|X|\*]+)?((?:\.[0-9|x|X|\*]+)*)` +
 	`(-([0-9A-Za-z\-]+(\.[0-9A-Za-z\-]+)*))?` +
 	`(\+([0-9A-Za-z\-]+(\.[0-9A-Za-z\-]+)*))?`
 
@@ -224,6 +224,7 @@ type constraint struct {
 	minorDirty bool
 	dirty      bool
 	patchDirty bool
+	extDirty   bool
 }
 
 // Check if a version meets the constraint
@@ -253,6 +254,7 @@ func parseConstraint(c string) (*constraint, error) {
 		ver := m[2]
 		minorDirty := false
 		patchDirty := false
+		extDirty := false
 		dirty := false
 		if isX(m[3]) || m[3] == "" {
 			ver = fmt.Sprintf("0.0.0%s", m[6])
@@ -265,6 +267,20 @@ func parseConstraint(c string) (*constraint, error) {
 			dirty = true
 			patchDirty = true
 			ver = fmt.Sprintf("%s%s.0%s", m[3], m[4], m[6])
+		} else {
+			parts := strings.Split(strings.TrimPrefix(m[5], "."), ".")
+			hasX := -1
+			for i, p := range parts {
+				if isX(p) {
+					hasX = i
+					break
+				}
+			}
+			if hasX >= 1 {
+				extDirty = true
+				dirty = true
+				ver = fmt.Sprintf("%s%s.%s%s", m[3], m[4], strings.Join(parts[:hasX], "."), m[6])
+			}
 		}
 
 		con, err := NewVersion(ver)
@@ -278,6 +294,7 @@ func parseConstraint(c string) (*constraint, error) {
 		cs.con = con
 		cs.minorDirty = minorDirty
 		cs.patchDirty = patchDirty
+		cs.extDirty = extDirty
 		cs.dirty = dirty
 
 		return cs, nil
@@ -334,6 +351,21 @@ func constraintNotEqual(v *Version, c *constraint) (bool, error) {
 				return false, fmt.Errorf("%s is equal to %s", v, c.orig)
 			}
 			return false, fmt.Errorf("%s is equal to %s", v, c.orig)
+		} else if compareExt(c.con.Ext(), v.Ext(), -1) != 0 && !c.extDirty {
+			return true, nil
+		} else if c.extDirty {
+			if compareExt(c.con.Ext(), v.Ext(), len(c.con.Ext())) == 0 {
+				// Need to handle prereleases if present
+				if v.Prerelease() != "" || c.con.Prerelease() != "" {
+					eq := comparePrerelease(v.Prerelease(), c.con.Prerelease()) != 0
+					if eq {
+						return true, nil
+					}
+					return false, fmt.Errorf("%s is equal to %s", v, c.orig)
+				}
+			} else {
+				return true, nil
+			}
 		}
 	}
 
@@ -382,7 +414,7 @@ func constraintGreaterThan(v *Version, c *constraint) (bool, error) {
 		return false, fmt.Errorf("%s is less than or equal to %s", v, c.orig)
 	}
 
-	// If we have gotten here we are not comparing pre-preleases and can use the
+	// If we have gotten here we are not comparing pre-preleases and extensions can use the
 	// Compare function to accomplish that.
 	eq = v.Compare(c.con) == 1
 	if eq {
@@ -407,7 +439,6 @@ func constraintLessThan(v *Version, c *constraint) (bool, error) {
 }
 
 func constraintGreaterThanEqual(v *Version, c *constraint) (bool, error) {
-
 	// If there is a pre-release on the version but the constraint isn't looking
 	// for them assume that pre-releases are not compatible. See issue 21 for
 	// more details.
@@ -442,10 +473,20 @@ func constraintLessThanEqual(v *Version, c *constraint) (bool, error) {
 
 	if v.Major() > c.con.Major() {
 		return false, fmt.Errorf("%s is greater than %s", v, c.orig)
-	} else if v.Major() == c.con.Major() && v.Minor() > c.con.Minor() && !c.minorDirty {
-		return false, fmt.Errorf("%s is greater than %s", v, c.orig)
 	}
 
+	if c.minorDirty {
+		return true, nil
+	} else if c.patchDirty {
+		if v.Major() == c.con.Major() && v.Minor() > c.con.Minor() {
+			return false, fmt.Errorf("%s is greater than %s", v, c.orig)
+		}
+		return true, nil
+	}
+
+	if v.Compare(c.con) > 0 {
+		return false, fmt.Errorf("%s is greater than %s", v, c.orig)
+	}
 	return true, nil
 }
 
@@ -469,8 +510,8 @@ func constraintTilde(v *Version, c *constraint) (bool, error) {
 
 	// ~0.0.0 is a special case where all constraints are accepted. It's
 	// equivalent to >= 0.0.0.
-	if c.con.Major() == 0 && c.con.Minor() == 0 && c.con.Patch() == 0 &&
-		!c.minorDirty && !c.patchDirty {
+	if c.con.Major() == 0 && c.con.Minor() == 0 && c.con.Patch() == 0 && len(c.con.Ext()) == 0 &&
+		!c.minorDirty && !c.patchDirty && !c.extDirty {
 		return true, nil
 	}
 
@@ -563,11 +604,22 @@ func constraintCaret(v *Version, c *constraint) (bool, error) {
 
 	// At this point the major is 0 and the minor is 0 and not dirty. The patch
 	// is not dirty so we need to check if they are equal. If they are not equal
-	eq = c.con.Patch() == v.Patch()
+	if c.con.Patch() > 0 {
+		eq = c.con.Patch() == v.Patch()
+		if eq {
+			return true, nil
+		}
+		return false, fmt.Errorf("%s does not equal %s. Expect version and constraint to equal when major and minor versions are 0", v, c.orig)
+	}
+	if c.con.Patch() == 0 && v.Patch() > 0 {
+		return false, fmt.Errorf("%s does not equal %s. Expect version and constraint to equal when major and minor versions are 0", v, c.orig)
+	}
+
+	eq = compareExt(c.con.Ext(), v.Ext(), len(c.con.Ext())) == 0
 	if eq {
 		return true, nil
 	}
-	return false, fmt.Errorf("%s does not equal %s. Expect version and constraint to equal when major and minor versions are 0", v, c.orig)
+	return false, fmt.Errorf("%s does not match %s", v, c.orig)
 }
 
 func isX(x string) bool {
