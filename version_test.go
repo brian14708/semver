@@ -36,7 +36,7 @@ func TestStrictNewVersion(t *testing.T) {
 		{"v1.2.0-x.Y.0+metadata-width-hypen", true},
 		{"1.2.3-rc1-with-hypen", false},
 		{"v1.2.3-rc1-with-hypen", true},
-		{"1.2.3.4", true},
+		{"1.2.3.4", false},
 		{"v1.2.3.4", true},
 		{"1.2.2147483648", false},
 		{"1.2147483648.3", false},
@@ -82,18 +82,11 @@ func TestNewVersion(t *testing.T) {
 		{"v1.2.0-x.Y.0+metadata-width-hypen", false},
 		{"1.2.3-rc1-with-hypen", false},
 		{"v1.2.3-rc1-with-hypen", false},
-		{"1.2.3.4", true},
-		{"v1.2.3.4", true},
+		{"1.2.3.4", false},
+		{"v1.2.3.4", false},
 		{"1.2.2147483648", false},
 		{"1.2147483648.3", false},
 		{"2147483648.3.0", false},
-
-		// Due to having 4 parts these should produce an error. See
-		// https://github.com/Masterminds/semver/issues/185 for the reason for
-		// these tests.
-		{"12.3.4.1234", true},
-		{"12.23.4.1234", true},
-		{"12.3.34.1234", true},
 	}
 
 	for _, tc := range tests {
@@ -671,6 +664,71 @@ func TestValidateMetadata(t *testing.T) {
 	for _, tc := range tests {
 		if err := validateMetadata(tc.meta); err != tc.expected {
 			t.Errorf("Unexpected error %q for metadata %q", err, tc.meta)
+		}
+	}
+}
+
+func TestStrictNewVersionExt(t *testing.T) {
+	tests := []struct {
+		version string
+		ext     []uint64
+	}{
+		{"1.2.3", nil},
+		{"1.2.3+test.01", nil},
+		{"1.2.3-alpha.-1", nil},
+		{"1.2.3.4", []uint64{4}},
+		{"1.2.3.4.5", []uint64{4, 5}},
+		{"1.2.3.4.5+test.01", []uint64{4, 5}},
+		{"1.2.3.4.5-alpha+test.01", []uint64{4, 5}},
+	}
+	for _, tc := range tests {
+		v, err := StrictNewVersion(tc.version)
+		if err != nil {
+			t.Fatalf("error for version: %s", tc.version)
+		}
+		if len(v.ext) != len(tc.ext) {
+			t.Fatalf("expected extension for version: %s", tc.version)
+		}
+		for i := range v.ext {
+			if v.ext[i] != tc.ext[i] {
+				t.Fatalf("expected extension for version: %s", tc.version)
+			}
+		}
+	}
+}
+
+func TestNewVersionExt(t *testing.T) {
+	tests := []struct {
+		version string
+		ext     []uint64
+	}{
+		{"1.2.3", nil},
+		{"1.2.3+test.01", nil},
+		{"1.2.3-alpha.-1", nil},
+		{"1.2.3.4", []uint64{4}},
+		{"1.2.3.4.5", []uint64{4, 5}},
+		{"1.2.3.4.5+test.01", []uint64{4, 5}},
+		{"1.2.3.4.5-alpha+test.01", []uint64{4, 5}},
+		{"V1.2.3", nil},
+		{"V1.2.3+test.01", nil},
+		{"V1.2.3-alpha.-1", nil},
+		{"v1.2.3.4", []uint64{4}},
+		{"v1.2.3.4.5", []uint64{4, 5}},
+		{"v1.2.3.4.5+test.01", []uint64{4, 5}},
+		{"v1.2.3.4.5-alpha+test.01", []uint64{4, 5}},
+	}
+	for _, tc := range tests {
+		v, err := NewVersion(tc.version)
+		if err != nil {
+			t.Fatalf("error for version: %s", tc.version)
+		}
+		if len(v.ext) != len(tc.ext) {
+			t.Fatalf("expected extension for version: %s", tc.version)
+		}
+		for i := range v.ext {
+			if v.ext[i] != tc.ext[i] {
+				t.Fatalf("expected extension for version: %s", tc.version)
+			}
 		}
 	}
 }

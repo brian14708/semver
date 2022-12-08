@@ -39,13 +39,14 @@ var (
 )
 
 // semVerRegex is the regular expression used to parse a semantic version.
-const semVerRegex string = `v?([0-9]+)(\.[0-9]+)?(\.[0-9]+)?` +
+const semVerRegex string = `[vV]?([0-9]+)(\.[0-9]+)?((?:\.[0-9]+)*)` +
 	`(-([0-9A-Za-z\-]+(\.[0-9A-Za-z\-]+)*))?` +
 	`(\+([0-9A-Za-z\-]+(\.[0-9A-Za-z\-]+)*))?`
 
 // Version represents a single semantic version.
 type Version struct {
 	major, minor, patch uint64
+	ext                 []uint64
 	pre                 string
 	metadata            string
 	original            string
@@ -102,6 +103,9 @@ func StrictNewVersion(v string) (*Version, error) {
 		}
 	}
 
+	// parse extensions
+	parts = append(parts[:2], strings.Split(parts[2], ".")...)
+
 	// Validate the number segments are valid. This includes only having positive
 	// numbers and no leading 0's.
 	for _, p := range parts {
@@ -129,6 +133,14 @@ func StrictNewVersion(v string) (*Version, error) {
 	sv.patch, err = strconv.ParseUint(parts[2], 10, 64)
 	if err != nil {
 		return nil, err
+	}
+
+	for _, p := range parts[3:] {
+		e, err := strconv.ParseUint(p, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		sv.ext = append(sv.ext, e)
 	}
 
 	// No prerelease or build metadata found so returning now as a fastpath.
@@ -183,9 +195,17 @@ func NewVersion(v string) (*Version, error) {
 	}
 
 	if m[3] != "" {
-		sv.patch, err = strconv.ParseUint(strings.TrimPrefix(m[3], "."), 10, 64)
+		parts := strings.Split(strings.TrimPrefix(m[3], "."), ".")
+		sv.patch, err = strconv.ParseUint(parts[0], 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("Error parsing version segment: %s", err)
+		}
+		for _, p := range parts[1:] {
+			e, err := strconv.ParseUint(p, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			sv.ext = append(sv.ext, e)
 		}
 	} else {
 		sv.patch = 0
@@ -212,11 +232,16 @@ func NewVersion(v string) (*Version, error) {
 // New creates a new instance of Version with each of the parts passed in as
 // arguments instead of parsing a version string.
 func New(major, minor, patch uint64, pre, metadata string) *Version {
+	return NewWithExt(major, minor, patch, nil, pre, metadata)
+}
+
+func NewWithExt(major, minor, patch uint64, ext []uint64, pre, metadata string) *Version {
 	v := Version{
 		major:    major,
 		minor:    minor,
 		patch:    patch,
 		pre:      pre,
+		ext:      ext,
 		metadata: metadata,
 		original: "",
 	}
@@ -244,6 +269,9 @@ func (v Version) String() string {
 	var buf bytes.Buffer
 
 	fmt.Fprintf(&buf, "%d.%d.%d", v.major, v.minor, v.patch)
+	for _, e := range v.ext {
+		fmt.Fprintf(&buf, ".%d", e)
+	}
 	if v.pre != "" {
 		fmt.Fprintf(&buf, "-%s", v.pre)
 	}
@@ -286,8 +314,7 @@ func (v Version) Metadata() string {
 
 // originalVPrefix returns the original 'v' prefix if any.
 func (v Version) originalVPrefix() string {
-	// Note, only lowercase v is supported as a prefix by the parser.
-	if v.original != "" && v.original[:1] == "v" {
+	if v.original != "" && (v.original[0] == 'v' || v.original[0] == 'V') {
 		return v.original[:1]
 	}
 	return ""
