@@ -481,6 +481,7 @@ func (v *Version) UnmarshalJSON(b []byte) error {
 	v.major = temp.major
 	v.minor = temp.minor
 	v.patch = temp.patch
+	v.ext = temp.ext
 	v.pre = temp.pre
 	v.metadata = temp.metadata
 	v.original = temp.original
@@ -520,6 +521,7 @@ func (v *Version) Scan(value interface{}) error {
 	v.major = temp.major
 	v.minor = temp.minor
 	v.patch = temp.patch
+	v.ext = temp.ext
 	v.pre = temp.pre
 	v.metadata = temp.metadata
 	v.original = temp.original

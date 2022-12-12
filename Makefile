@@ -16,19 +16,8 @@ test-cover:
 	@echo "==> Running Tests with coverage"
 	go test -cover .
 
-.PHONY: fuzz
-fuzz:
-	@echo "==> Fuzz testing"
-	go test -fuzz .
-
 $(GOLANGCI_LINT):
 	# Install golangci-lint. The configuration for it is in the .golangci.yml
 	# file in the root of the repository
 	echo ${GOPATH}
 	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOPATH)/bin v1.50.1
-
-$(GOFUZZBUILD):
-	cd / && go get -u github.com/dvyukov/go-fuzz/go-fuzz-build
-
-$(GOFUZZ):
-	cd / && go get -u github.com/dvyukov/go-fuzz/go-fuzz github.com/dvyukov/go-fuzz/go-fuzz-dep
