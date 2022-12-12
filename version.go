@@ -302,6 +302,11 @@ func (v Version) Patch() uint64 {
 	return v.patch
 }
 
+// Ext returns the extension versions.
+func (v Version) Ext() []uint64 {
+	return v.ext
+}
+
 // Prerelease returns the pre-release version.
 func (v Version) Prerelease() string {
 	return v.pre
@@ -339,6 +344,7 @@ func (v Version) IncPatch() Version {
 		vNext.pre = ""
 		vNext.patch = v.patch + 1
 	}
+	vNext.ext = nil
 	vNext.original = v.originalVPrefix() + "" + vNext.String()
 	return vNext
 }
@@ -352,6 +358,7 @@ func (v Version) IncMinor() Version {
 	vNext := v
 	vNext.metadata = ""
 	vNext.pre = ""
+	vNext.ext = nil
 	vNext.patch = 0
 	vNext.minor = v.minor + 1
 	vNext.original = v.originalVPrefix() + "" + vNext.String()
@@ -368,6 +375,7 @@ func (v Version) IncMajor() Version {
 	vNext := v
 	vNext.metadata = ""
 	vNext.pre = ""
+	vNext.ext = nil
 	vNext.patch = 0
 	vNext.minor = 0
 	vNext.major = v.major + 1
@@ -437,6 +445,9 @@ func (v *Version) Compare(o *Version) int {
 		return d
 	}
 	if d := compareSegment(v.Patch(), o.Patch()); d != 0 {
+		return d
+	}
+	if d := compareExt(v.Ext(), o.Ext(), -1); d != 0 {
 		return d
 	}
 
@@ -528,6 +539,33 @@ func compareSegment(v, o uint64) int {
 		return 1
 	}
 
+	return 0
+}
+
+func compareExt(v, o []uint64, maxSeg int) int {
+	if maxSeg == -1 {
+		if len(v) > len(o) {
+			maxSeg = len(v)
+		} else {
+			maxSeg = len(o)
+		}
+	}
+	for i := 0; i < maxSeg; i++ {
+		a := uint64(0)
+		b := uint64(0)
+		if i < len(v) {
+			a = v[i]
+		}
+		if i < len(o) {
+			b = o[i]
+		}
+		if a < b {
+			return -1
+		}
+		if a > b {
+			return 1
+		}
+	}
 	return 0
 }
 

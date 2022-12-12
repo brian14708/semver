@@ -9,12 +9,12 @@ lint: $(GOLANGCI_LINT)
 .PHONY: test
 test:
 	@echo "==> Running tests"
-	GO111MODULE=on go test -v
+	go test -v .
 
 .PHONY: test-cover
 test-cover:
 	@echo "==> Running Tests with coverage"
-	GO111MODULE=on go test -cover .
+	go test -cover .
 
 .PHONY: fuzz
 fuzz:

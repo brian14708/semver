@@ -26,6 +26,7 @@ func TestParseConstraint(t *testing.T) {
 		{"> 1.3", constraintGreaterThan, "1.3.0", false},
 		{"< 1.4.1", constraintLessThan, "1.4.1", false},
 		{"< 40.50.10", constraintLessThan, "40.50.10", false},
+		{"1.2.3.4.*", constraintTildeOrEqual, "1.2.3.4", false},
 	}
 
 	for _, tc := range tests {
@@ -62,6 +63,10 @@ func TestConstraintCheck(t *testing.T) {
 	}{
 		{"=2.0.0", "1.2.3", false},
 		{"=2.0.0", "2.0.0", true},
+		{"=2.0.0.0.0", "2.0.0", true},
+		{"=2.0.0.0.1", "2.0.0", false},
+		{"=2.0.0.0.x", "2.0.0.0.2", true},
+		{"=2.0.0.0.x", "2.0.0.1.2", false},
 		{"=2.0", "1.2.3", false},
 		{"=2.0", "2.0.0", true},
 		{"=2.0", "2.0.1", true},
@@ -73,11 +78,16 @@ func TestConstraintCheck(t *testing.T) {
 		{"!=4.1", "5.1.0-alpha.1", false},
 		{"!=4.1-alpha", "4.1.0", true},
 		{"!=4.1", "5.1.0", true},
+		{"!=4.1.0.8", "4.1.0", true},
+		{"!=4.1.0.8", "4.1.0.8", false},
+		{"!=4.1.0.8-a", "4.1.0.8", true},
 		{"<11", "0.1.0", true},
 		{"<11", "11.1.0", false},
 		{"<1.1", "0.1.0", true},
 		{"<1.1", "1.1.0", false},
 		{"<1.1", "1.1.1", false},
+		{"<1.1.1.1.1", "1.1.1.1.1", false},
+		{"<1.1.1.1.1", "1.1.1.1.0.5", true},
 		{"<=11", "1.2.3", true},
 		{"<=11", "12.2.3", false},
 		{"<=11", "11.2.3", true},
@@ -102,12 +112,20 @@ func TestConstraintCheck(t *testing.T) {
 		{">11.1", "11.1.0", false},
 		{">11.1", "11.1.1", false},
 		{">11.1", "11.2.1", true},
+		{">11.1.0.1", "11.1.0.1.2", true},
+		{">11.1.0.1", "11.1.0.3.2", true},
+		{">11.1.0.1", "11.1.0.1.0", false},
 		{">=11", "11.1.2", true},
 		{">=11.1", "11.1.2", true},
 		{">=11.1", "11.0.2", false},
 		{">=1.1", "4.1.0", true},
 		{">=1.1", "1.1.0", true},
 		{">=1.1", "0.0.9", false},
+		{">=1.1.1.1", "1.1.1.1", true},
+		{">=1.1.1.1", "1.1.1.1.4", true},
+		{">=1.1.1.1", "1.1.1.0.4", false},
+		{">=1.1.1.1-alpha", "1.1.1.1.4", true},
+		{">=1.1.1.1-alpha", "1.1.1.1.4-alpha", true},
 		{">=0", "0.0.1-alpha", false},
 		{">=0.0", "0.0.1-alpha", false},
 		{">=0-0", "0.0.1-alpha", true},
@@ -146,7 +164,11 @@ func TestConstraintCheck(t *testing.T) {
 		{"~1", "2.3.4", false},
 		{"~0.2.3", "0.2.5", true},
 		{"~0.2.3", "0.3.5", false},
+		{"~0.2.3", "0.2.3.8", true},
 		{"~1.2.3-beta.2", "1.2.3-beta.4", true},
+		{"~2.0.0.1", "2.0.0.0", false},
+		{"~2.0.0.1", "2.0.0.2", true},
+		{"~2.0.0.1", "2.0.1.0", false},
 
 		// This next test is a case that is different from npm/js semver handling.
 		// Their prereleases are only range scoped to patch releases. This is
@@ -154,6 +176,7 @@ func TestConstraintCheck(t *testing.T) {
 		// following semver.
 		{"~1.2.3-beta.2", "1.2.4-beta.2", true},
 		{"~1.2.3-beta.2", "1.3.4-beta.2", false},
+		{"^1.2.3", "1.8.9", true},
 		{"^1.2.3", "1.8.9", true},
 		{"^1.2.3", "2.8.9", false},
 		{"^1.2.3", "1.2.1", false},
@@ -178,6 +201,9 @@ func TestConstraintCheck(t *testing.T) {
 		{"^0.0", "1.0.4", false},
 		{"^0", "0.2.3", true},
 		{"^0", "1.1.4", false},
+		{"^0.0.0.0.4", "0.0.0.0.4.1", true},
+		{"^0.0.0.0.4.2", "0.0.0.0.5", false},
+		{"^0.0.0.0.4.2", "0.0.0.0.4.1", false},
 		{"^0.2.3-beta.2", "0.2.3-beta.4", true},
 
 		// This next test is a case that is different from npm/js semver handling.
@@ -235,12 +261,9 @@ func TestNewConstraint(t *testing.T) {
 		// The 3 - 4 should be broken into 2 by the range rewriting
 		{"3 - 4 || => 3.0, < 4", 2, 2, false},
 
-		// Due to having 4 parts these should produce an error. See
-		// https://github.com/Masterminds/semver/issues/185 for the reason for
-		// these tests.
-		{"12.3.4.1234", 0, 0, true},
-		{"12.23.4.1234", 0, 0, true},
-		{"12.3.34.1234", 0, 0, true},
+		{"12.3.4.1234", 1, 1, false},
+		{"12.23.4.1234", 1, 1, false},
+		{"12.3.34.1234", 1, 1, false},
 		{"12.3.34 ~1.2.3", 1, 2, false},
 		{"12.3.34~ 1.2.3", 0, 0, true},
 	}
@@ -322,6 +345,9 @@ func TestConstraintsCheck(t *testing.T) {
 		{"<=1.x", "1.1.0", true},
 		{"<=2.x", "3.0.0", false},
 		{"<=1.1", "1.1.1", true},
+		{"<=1.1.1.1", "1.1.0", true},
+		{"<=1.1.1.1.x", "1.1.1.1", true},
+		{"<=1.1.1.1.x", "1.1.2.1", false},
 		{"<=1.1.x", "1.2.500", false},
 		{"<=4.5", "3.4.0", true},
 		{"<=4.5", "3.7.0", true},
