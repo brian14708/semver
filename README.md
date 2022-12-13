@@ -1,5 +1,12 @@
 # SemVer
 
+### Forked from [Masterminds/semver](https://github.com/Masterminds/semver)
+
+- Convert constraints to version ranges
+- Allow more than 3 components for version
+
+---
+
 The `semver` package provides the ability to work with [Semantic Versions](http://semver.org) in Go. Specifically it provides the ability to:
 
 * Parse semantic versions
