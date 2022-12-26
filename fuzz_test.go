@@ -3,7 +3,9 @@
 
 package semver
 
-import "testing"
+import (
+	"testing"
+)
 
 func FuzzParse(f *testing.F) {
 	testcase := []string{
@@ -39,6 +41,9 @@ func FuzzRanges(f *testing.F) {
 		{"2", "=2"},
 		{"0.4.2", "0.1.2 - 1.3.2"},
 		{"1.2.3-beta.1+build345", "^1.2.3-beta"},
+		{"0.0.0.1", ">0.0.0.x"},
+		{"0.0.0.10000000000000000000", ">0.0.0.x"},
+		{"0-0", "!=0.0.0-1"},
 	}
 	for _, t := range testcase {
 		f.Add(t.ver, t.constraint)

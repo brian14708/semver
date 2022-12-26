@@ -103,7 +103,7 @@ func constraintRangeEqual(c *constraint) (ConstraintRange, error) {
 func constraintRangeNotEqual(c *constraint) (ConstraintRange, error) {
 	if !c.dirty {
 		return ConstraintRange{
-			MatchPrerelease: c.con.pre == "",
+			MatchPrerelease: true,
 			InvertRange:     true,
 			Lower:           ConstraintRangeEndpointInclusive,
 			Upper:           ConstraintRangeEndpointInclusive,

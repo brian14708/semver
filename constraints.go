@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 )
@@ -408,6 +409,15 @@ func constraintGreaterThan(v *Version, c *constraint) (bool, error) {
 		// This is for ranges such as >11.1. A version of 11.1.1 is not greater
 		// which one of 11.2.1 is greater
 		eq = v.Minor() > c.con.Minor()
+		if eq {
+			return true, nil
+		}
+		return false, fmt.Errorf("%s is less than or equal to %s", v, c.orig)
+	} else if c.extDirty {
+		tmp := *c.con
+		tmp.ext = append(tmp.ext, math.MaxUint64)
+		fmt.Println(tmp)
+		eq = v.Compare(&tmp) == 1
 		if eq {
 			return true, nil
 		}
